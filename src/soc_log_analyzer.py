@@ -1,19 +1,19 @@
-def analyze_logs(filepath: str) -> dict[str, int]: 
+def analyze_logs(filepath: str) -> dict:
     """
     Reads an authentication log file and counts failed login attempts for each IP address.
 
     Args:
-    filepath: Path to the authentication log file.
+        filepath: Path to the authentication log file.
 
     Returns:
-    A dictionary where the keys are the IP addresses and the values are the number of failed login attempts for each IP.
+        A dictionary containing failed login information for each IP address.
     """
     try:
-        with open(filepath ,"r") as file:
+        with open(filepath, "r") as file:
             content = file.readlines()
 
     except FileNotFoundError:
-        print(f"Error: Log file '{filepath}' was not found!.")
+        print(f"Error: Log file '{filepath}' was not found!")
         return {}
 
     failed_ips = {}
@@ -23,83 +23,117 @@ def analyze_logs(filepath: str) -> dict[str, int]:
 
         if "Failed password" in line:
             parts = line.split()
+
+            timestamp = " ".join(parts[:3])
+
+            for_index = parts.index("for")
+            username = parts[for_index + 1]
+
             from_index = parts.index("from")
             ip = parts[from_index + 1]
 
             if ip not in failed_ips:
-                failed_ips[ip] = 1
+                failed_ips[ip] = {
+                    "attempts": 1,
+                    "timestamps": [timestamp],
+                    "usernames": [username]
+                }
             else:
-                failed_ips[ip] += 1
+                failed_ips[ip]["attempts"] += 1
+                failed_ips[ip]["timestamps"].append(timestamp)
+                failed_ips[ip]["usernames"].append(username)
 
     return failed_ips
 
-def print_report(failed_ips: dict[str, int]) -> None:
+
+def print_report(failed_ips: dict) -> None:
     """
-    Prints a summary report of failed login attempts by IP address and shows how many unique attacking IPs were there.
+    Prints a summary report of failed login attempts.
 
     Args:
-    failed_ips: Dictionary containing IP addreses and their corresponding failed login attempts count.
+        failed_ips: Dictionary containing failed login information for each IP.
 
     Returns:
-    None.
-
+        None.
     """
-    print("=== FAILED LOGINS REPORT === ")
-    
+    print("\nFAILED LOGINS REPORT\n")
+
     for ip in failed_ips:
-        print(f"{ip} : {failed_ips[ip]} attempts")
-        
-    print(f"Total unique attacking IPs: {len(failed_ips)}")
+        attempts = failed_ips[ip]["attempts"]
+        timestamps = failed_ips[ip]["timestamps"]
+        usernames = failed_ips[ip]["usernames"]
 
-def print_alerts(failed_ips: dict[str, int], threshold: int) -> None: 
+        unique_usernames = ", ".join(set(usernames))
+
+        print(f"IP Address: {ip}")
+        print(f"Failed Attempts: {attempts}")
+        print(f"Targeted User(s): {unique_usernames}")
+        print(f"First Attempt: {timestamps[0]}")
+        print(f"Last Attempt: {timestamps[-1]}")
+        print()
+
+    print(f"Total Unique Attacking IPs: {len(failed_ips)}")
+
+
+def print_alerts(failed_ips: dict, threshold: int) -> None:
     """
-    Prints an alert for every IP address whose failed login attempts meet or exceed the threshold value.
+    Prints an alert for every IP address whose failed login attempts
+    meet or exceed the threshold value.
 
     Args:
-    failed_ips: Dictionary containing IP addreses and their corresponding failed login attempts count.
-    threshold: Minimum number of failed attempts required to trigger an alert.
+        failed_ips: Dictionary containing failed login information.
+        threshold: Minimum number of failed attempts required to trigger an alert.
 
     Returns:
-    None.
+        None.
     """
-    print("=== ALERTS ===")
-    
-    for ip in failed_ips:
-        if failed_ips[ip] >= threshold:
-            print(f"⚠ {ip} exceeded the threshold ({failed_ips[ip]} attempts)")
+    print("\nALERTS\n")
 
-def find_most_suspicious_ip(failed_ips: dict[str, int]) -> tuple[str, int]:
+    for ip in failed_ips:
+        attempts = failed_ips[ip]["attempts"]
+
+        if attempts >= threshold:
+            print(f"⚠ Alert: {ip} exceeded the threshold with {attempts} failed attempts.")
+
+
+def find_most_suspicious_ip(failed_ips: dict) -> tuple[str, int]:
     """
     Finds the IP address with the highest number of failed login attempts.
 
     Args:
-    failed_ips: Dictionary containing IP addreses and their corresponding failed login attempts count.
+        failed_ips: Dictionary containing failed login information.
 
     Returns:
-    A tuple containing the most suspicious IP address and its failed login attempt count.
+        A tuple containing the most suspicious IP address and
+        its failed login attempt count.
     """
-    max_attempts = 0
-    most_suspicious_ip = ""
-    for ip in failed_ips:
-        if failed_ips[ip] > max_attempts:
-            max_attempts = failed_ips[ip]
-            most_suspicious_ip = ip
+    if not failed_ips:
+        return "", 0
 
-    return most_suspicious_ip, max_attempts
+    most_suspicious_ip = max(
+        failed_ips,
+        key=lambda ip: failed_ips[ip]["attempts"]
+    )
+
+    attempts = failed_ips[most_suspicious_ip]["attempts"]
+
+    return most_suspicious_ip, attempts
+
 
 def main() -> None:
     log_file = "logs/sample_auth.log"
     threshold = 3
-    
+
     failed_ips = analyze_logs(log_file)
-    
+
     print_report(failed_ips)
-    print()
     print_alerts(failed_ips, threshold)
 
     ip, attempts = find_most_suspicious_ip(failed_ips)
 
-    print(f"Most Suspicious IP: {ip}")
-    print(f"Attempts: {attempts}")
+    print("\nMOST SUSPICIOUS IP\n")
+    print(f"IP Address: {ip}")
+    print(f"Failed Attempts: {attempts}")
+
 
 main()
