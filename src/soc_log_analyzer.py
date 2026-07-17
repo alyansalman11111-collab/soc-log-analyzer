@@ -24,23 +24,27 @@ def analyze_logs(filepath: str) -> dict:
         line = line.strip()
 
         if "Failed password" in line:
-            parts = line.split()
-            
-            current_year = datetime.now().year
-            timestamp = datetime.strptime(f"{current_year} {' '.join(parts[:3])}", "%Y %b %d %H:%M:%S")
+            try:
+                parts = line.split()
 
-            for_index = parts.index("for")
-            username = parts[for_index + 1]
+                current_year = datetime.now().year
+                timestamp = datetime.strptime(f"{current_year} {' '.join(parts[:3])}", "%Y %b %d %H:%M:%S")
 
-            from_index = parts.index("from")
-            ip = parts[from_index + 1]
+                for_index = parts.index("for")
+                username = parts[for_index + 1]
 
-            if ip not in failed_ips:
-                failed_ips[ip] = {"attempts": 1, "usernames": [username], "timestamps": [timestamp]}
-            else:
-                failed_ips[ip]["attempts"] += 1
-                failed_ips[ip]["timestamps"].append(timestamp)
-                failed_ips[ip]["usernames"].append(username)
+                from_index = parts.index("from")
+                ip = parts[from_index + 1]
+
+                if ip not in failed_ips:
+                    failed_ips[ip] = {"attempts": 1, "usernames": [username], "timestamps": [timestamp]}
+                else:
+                    failed_ips[ip]["attempts"] += 1
+                    failed_ips[ip]["timestamps"].append(timestamp)
+                    failed_ips[ip]["usernames"].append(username)
+
+            except ValueError:
+                continue
 
     return failed_ips
 
@@ -70,6 +74,49 @@ def is_brute_force(timestamps: list[datetime], threshold: int, time_window: int)
         
     return False
 
+def calculate_attempt_rate(attempts: int, timestamps: list[datetime]) -> float:
+    """
+    Calculates the average number of failed login attempts per minute.
+
+    Args:
+        attempts: Total number of failed login attempts.
+
+    Returns:
+        Average failed login attempts per minute. 
+    """
+
+    duration = (timestamps[-1] - timestamps[0]).total_seconds()
+
+    if duration == 0:
+        return float(attempts)
+    
+    minutes = duration / 60
+    rate = attempts / minutes
+
+    return round(rate, 2)
+
+def get_severity(attempts: int, brute_force: bool) -> str:
+    """
+    Classifies the severity of failed login attempts.
+
+    Args: 
+        attempts: Number of failed login attempts.
+
+    Returns:
+        Severity level as a string.
+    """
+    if brute_force:
+        return "Critical"
+    
+    elif attempts >= 5:
+        return "High"
+    
+    elif attempts >= 3:
+        return "Medium"
+    
+    else:
+        return "Low"
+
 def print_report(failed_ips: dict) -> None:
     """
     Prints a summary report of failed login attempts.
@@ -87,11 +134,17 @@ def print_report(failed_ips: dict) -> None:
         attempts = failed_ips[ip]["attempts"]
         usernames = failed_ips[ip]["usernames"]
         timestamps = failed_ips[ip]["timestamps"]
+        attempt_rate = calculate_attempt_rate(attempts, timestamps)
+        brute_force = is_brute_force(timestamps, threshold = 3, time_window = 60)
+        severity = get_severity(attempts, brute_force)
         unique_usernames = ", ".join(set(usernames))
 
         print(f"IP Address: {ip}")
         print(f"Failed Attempts: {attempts}")
+        print(f"Attempts per Minute: {attempt_rate}")
+        print(f"Severity: {severity}")
         print(f"Targeted User(s): {unique_usernames}")
+        print(f"Brute-Force Detected: {brute_force} ")
         print(f"First Attempt: {timestamps[0]}")
         print(f"Last Attempt: {timestamps[-1]}")
         print()
@@ -153,4 +206,5 @@ def main() -> None:
     print(f"IP Address: {ip}")
     print(f"Failed Attempts: {attempts}")
 
-main()
+if __name__ == "__main__":
+    main()
