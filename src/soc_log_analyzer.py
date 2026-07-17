@@ -1,3 +1,5 @@
+from datetime import datetime
+
 def analyze_logs(filepath: str) -> dict:
 
     """
@@ -23,8 +25,9 @@ def analyze_logs(filepath: str) -> dict:
 
         if "Failed password" in line:
             parts = line.split()
-
-            timestamp = " ".join(parts[:3])
+            
+            current_year = datetime.now().year
+            timestamp = datetime.strptime(f"{current_year} {' '.join(parts[:3])}", "%Y %b %d %H:%M:%S")
 
             for_index = parts.index("for")
             username = parts[for_index + 1]
@@ -40,6 +43,32 @@ def analyze_logs(filepath: str) -> dict:
                 failed_ips[ip]["usernames"].append(username)
 
     return failed_ips
+
+def is_brute_force(timestamps: list[datetime], threshold: int, time_window: int) -> bool:
+    """
+    Detect whether a series of failed login attempts resembles a brute-force attack.
+
+    Args:
+        timestamps: List of failed login attempt times.
+        threshold: Number of attempts required to trigger detection.
+        time_window: Time window in seconds.
+
+    Returns:
+        True if a brute-force pattern is detected, otherwise False.
+    """
+
+    timestamps = sorted(timestamps)
+
+    for i in range(len(timestamps) - threshold + 1):
+        start = timestamps[i]
+        end = timestamps[i + threshold - 1]
+
+        difference = (end - start).total_seconds()
+
+        if difference <= time_window:
+            return True
+        
+    return False
 
 def print_report(failed_ips: dict) -> None:
     """
