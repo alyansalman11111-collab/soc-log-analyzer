@@ -74,12 +74,46 @@ def is_brute_force(timestamps: list[datetime], threshold: int, time_window: int)
         
     return False
 
+def is_password_spray(usernames: list[str], timestamps: list[datetime], threshold: int, time_window: int) -> bool:
+    """
+    Detect whether a series of failed login attempts resembles a password spraying attack.
+
+    Args:
+        usernames: List of usernames targeted by an IP address.
+        timestamps: List of failed login attempt times.
+        threshold: Minimum number of unique usernames required.
+        time_window: Time window in seconds.
+
+    Returns:
+        True if a password spraying pattern is detected, otherwise False. 
+    """
+
+    combined = sorted(zip(timestamps, usernames))
+
+    for i in range(len(combined) - threshold + 1):
+        start_time = combined[i][0]
+        end_time = combined[i + threshold - 1][0]
+
+        difference = (end_time - start_time).total_seconds()
+
+        if difference <= time_window:
+            window_usernames = {
+                username
+                for _, username in combined [i: i + threshold]
+            }
+
+            if len(window_usernames) >= threshold:
+                return True
+
+    return False
+
 def calculate_attempt_rate(attempts: int, timestamps: list[datetime]) -> float:
     """
     Calculates the average number of failed login attempts per minute.
 
     Args:
         attempts: Total number of failed login attempts.
+        timestamps: List of datetime objects for the IP's attempts.
 
     Returns:
         Average failed login attempts per minute. 
@@ -95,27 +129,84 @@ def calculate_attempt_rate(attempts: int, timestamps: list[datetime]) -> float:
 
     return round(rate, 2)
 
-def get_severity(attempts: int, brute_force: bool) -> str:
+def calculate_risk_score(attempts: int, brute_force: bool, password_spray: bool, attempt_rate: float) -> int:
     """
-    Classifies the severity of failed login attempts.
+    Calculates a risk score based on multiple attack indicators.
 
-    Args: 
-        attempts: Number of failed login attempts.
+    Args:
+        attempts: Total failed login attempts.
+        brute_force: Whether brute-force behavior was detected.
+        password_spray: Whether password spraying was detected.
+        attempt_rate: Average failed login attempts per minute.
 
     Returns:
-        Severity level as a string.
+        An integer risk score.
     """
+
+    score = 0
+
     if brute_force:
+        score += 2
+
+    if password_spray:
+        score += 2
+
+    if attempts >= 10:
+        score += 1
+
+    if attempt_rate >= 20:
+        score += 1
+
+    return score
+
+def get_severity(risk_score: int) -> str:
+    """
+    Converts a risk score into a security level.
+
+    Args:
+        risk_score: Calculated risk score.
+
+    Returns:
+        Security level as a string.
+    """
+
+    if risk_score >= 6:
         return "Critical"
-    
-    elif attempts >= 5:
+
+    if risk_score >= 4:
         return "High"
-    
-    elif attempts >= 3:
+
+    if risk_score >= 2:
         return "Medium"
-    
+
     else:
         return "Low"
+
+def calculate_attack_duration(timestamps: list[datetime]) -> str:
+    """
+    Calculates the duration of an attack.
+
+    Args:
+        timestamps: List of failed login attempt timstamps.
+
+    Returns:
+        Attack duration as a human-readable string.
+    """
+
+    duration = (timestamps[-1] - timestamps[0]).total_seconds()
+
+    hours = int(duration // 3600)
+    minutes = int((duration % 3600) // 60)
+    seconds = int(duration % 60)
+
+    if hours > 0: 
+        return f"{hours} hour(s), {minutes} minute(s), {seconds} second(s)"
+
+    elif minutes > 0:
+        return f"{minutes} minute(s), {seconds} second(s)"
+
+    else:
+        return f"{seconds} second(s)" 
 
 def print_report(failed_ips: dict) -> None:
     """
@@ -134,17 +225,23 @@ def print_report(failed_ips: dict) -> None:
         attempts = failed_ips[ip]["attempts"]
         usernames = failed_ips[ip]["usernames"]
         timestamps = failed_ips[ip]["timestamps"]
+        brute_force = is_brute_force(timestamps, threshold = 3, time_window = 60)   
         attempt_rate = calculate_attempt_rate(attempts, timestamps)
-        brute_force = is_brute_force(timestamps, threshold = 3, time_window = 60)
-        severity = get_severity(attempts, brute_force)
+        attack_duration = calculate_attack_duration(timestamps)
+        password_spray = is_password_spray(usernames, timestamps, threshold = 3, time_window = 60)
+        risk_score = calculate_risk_score(attempts, brute_force, password_spray, attempt_rate)
+        severity = get_severity(risk_score)
         unique_usernames = ", ".join(set(usernames))
 
         print(f"IP Address: {ip}")
         print(f"Failed Attempts: {attempts}")
         print(f"Attempts per Minute: {attempt_rate}")
+        print(f"Attack Duration: {attack_duration}")
         print(f"Severity: {severity}")
+        print(f"Password Spray Detected: {password_spray}")
         print(f"Targeted User(s): {unique_usernames}")
         print(f"Brute-Force Detected: {brute_force} ")
+        print(f"Risk Score: {risk_score}")
         print(f"First Attempt: {timestamps[0]}")
         print(f"Last Attempt: {timestamps[-1]}")
         print()
