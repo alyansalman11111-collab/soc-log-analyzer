@@ -1,3 +1,7 @@
+import json
+import csv
+import ipaddress
+
 from datetime import datetime
 
 def analyze_logs(filepath: str) -> dict:
@@ -35,6 +39,8 @@ def analyze_logs(filepath: str) -> dict:
 
                 from_index = parts.index("from")
                 ip = parts[from_index + 1]
+
+                ipaddress.ip_address(ip)
 
                 if ip not in failed_ips:
                     failed_ips[ip] = {"attempts": 1, "usernames": [username], "timestamps": [timestamp]}
@@ -146,10 +152,10 @@ def calculate_risk_score(attempts: int, brute_force: bool, password_spray: bool,
     score = 0
 
     if brute_force:
-        score += 2
+        score += 3
 
     if password_spray:
-        score += 2
+        score += 3
 
     if attempts >= 10:
         score += 1
@@ -288,6 +294,141 @@ def most_suspicious_ip(failed_ips: dict) -> tuple[str, int]:
 
     return most_suspicious_ip, attempts
 
+def export_to_json(failed_ips: dict, output_file: str) -> None:
+    """
+    Exports the analyzed report to a JSON file.
+
+    Args:
+        failed_ips: Dictionary containing failed login information.
+        output_file: Name of the JSON output file.
+
+    Returns:
+        None.
+    """
+
+    report = {}
+
+    for ip in failed_ips:
+        attempts = failed_ips[ip]["attempts"]
+        usernames = failed_ips[ip]["usernames"]
+        timestamps = failed_ips[ip]["timestamps"]
+
+        brute_force = is_brute_force(
+            timestamps,
+            threshold=3,
+            time_window=60
+        )
+
+        password_spray = is_password_spray(
+            usernames,
+            timestamps,
+            threshold=3,
+            time_window=60
+        )
+
+        attempt_rate = calculate_attempt_rate(attempts, timestamps)
+        attack_duration = calculate_attack_duration(timestamps)
+        risk_score = calculate_risk_score(
+            attempts,
+            brute_force,
+            password_spray,
+            attempt_rate
+        )
+        severity = get_severity(risk_score)
+
+        report[ip] = {
+            "attempts": attempts,
+            "severity": severity,
+            "risk_score": risk_score,
+            "attempt_rate": attempt_rate,
+            "attack_duration": attack_duration,
+            "brute_force": brute_force,
+            "password_spray": password_spray,
+            "targeted_users": list(set(usernames)),
+            "first_attempt": timestamps[0].strftime("%Y-%m-%d %H:%M:%S"),
+            "last_attempt": timestamps[-1].strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+    with open(output_file, "w") as file:
+        json.dump(report, file, indent=4)
+
+    print(f"\nReport exported successfully to '{output_file}'.")
+
+def export_to_csv(failed_ips: dict, output_file: str) -> None:
+    """
+    Exports the analyzed report to a CSV file.
+
+    Args:
+        failed_ips: Dictionary containing failed login information.
+        output_file: Name of the CSV output file.
+
+    Returns:
+        None.
+    """
+
+    with open(output_file, "w", newline="") as file:
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "IP Address",
+            "Attempts",
+            "Severity",
+            "Risk Score",
+            "Attempts per Minute",
+            "Attack Duration",
+            "Brute Force",
+            "Password Spray",
+            "Targeted Users",
+            "First Attempt",
+            "Last Attempt"
+        ])
+
+        for ip in failed_ips:
+            attempts = failed_ips[ip]["attempts"]
+            usernames = failed_ips[ip]["usernames"]
+            timestamps = failed_ips[ip]["timestamps"]
+
+            brute_force = is_brute_force(
+                timestamps,
+                threshold=3,
+                time_window=60
+            )
+
+            password_spray = is_password_spray(
+                usernames,
+                timestamps,
+                threshold=3,
+                time_window=60
+            )
+
+            attempt_rate = calculate_attempt_rate(attempts, timestamps)
+            attack_duration = calculate_attack_duration(timestamps)
+
+            risk_score = calculate_risk_score(
+                attempts,
+                brute_force,
+                password_spray,
+                attempt_rate
+            )
+
+            severity = get_severity(risk_score)
+
+            writer.writerow([
+                ip,
+                attempts,
+                severity,
+                risk_score,
+                attempt_rate,
+                attack_duration,
+                "Yes" if brute_force else "No",
+                "Yes" if password_spray else "No",
+                ", ".join(set(usernames)),
+                timestamps[0].strftime("%Y-%m-%d %H:%M:%S"),
+                timestamps[-1].strftime("%Y-%m-%d %H:%M:%S")
+            ])
+
+    print(f"\nReport exported successfully to '{output_file}'.")
+
 def main() -> None: 
     log_file = "logs/sample_auth.log"
     threshold = 3
@@ -296,6 +437,9 @@ def main() -> None:
 
     print_report(failed_ips)
     print_alerts(failed_ips, threshold)
+
+    export_to_json(failed_ips, "report.json")
+    export_to_csv(failed_ips, "report.csv")
 
     ip, attempts = most_suspicious_ip(failed_ips)
 

@@ -1,0 +1,19 @@
+IP Address,Attempts,Severity,Risk Score,Attempts per Minute,Attack Duration,Brute Force,Password Spray,Targeted Users,First Attempt,Last Attempt
+192.168.1.25,1,Low,0,1.0,0 second(s),No,No,ali,2026-07-31 08:00:12,2026-07-31 08:00:12
+10.0.0.15,2,Low,0,3.64,33 second(s),No,No,sarah,2026-07-31 08:03:15,2026-07-31 08:03:48
+203.0.113.10,17,High,4,13.42,"1 minute(s), 16 second(s)",Yes,No,root,2026-07-31 08:07:01,2026-07-31 08:08:17
+198.51.100.44,6,Critical,6,9.73,37 second(s),Yes,Yes,"mysql, postgres, admin, deploy, ubuntu, oracle",2026-07-31 08:08:39,2026-07-31 08:09:16
+198.18.0.5,1,Low,0,1.0,0 second(s),No,No,john,2026-07-31 08:10:01,2026-07-31 08:10:01
+45.67.89.123,1,Low,0,1.0,0 second(s),No,No,guest,2026-07-31 08:15:14,2026-07-31 08:15:14
+203.0.113.200,1,Low,0,1.0,0 second(s),No,No,backup,2026-07-31 08:16:02,2026-07-31 08:16:02
+91.240.118.50,12,High,4,15.0,48 second(s),Yes,No,deploy,2026-07-31 08:20:01,2026-07-31 08:20:49
+172.20.10.7,1,Low,0,1.0,0 second(s),No,No,admin,2026-07-31 08:21:15,2026-07-31 08:21:15
+185.199.110.9,5,Low,0,0.03,"2 hour(s), 25 minute(s), 53 second(s)",No,No,test,2026-07-31 09:05:02,2026-07-31 11:30:55
+203.0.113.77,1,Low,0,1.0,0 second(s),No,No,user,2026-07-31 11:44:10,2026-07-31 11:44:10
+198.51.100.150,2,Low,0,4.8,25 second(s),No,No,postgres,2026-07-31 12:05:17,2026-07-31 12:05:42
+104.248.10.22,5,Critical,6,16.67,18 second(s),Yes,Yes,"mysql, admin, root, guest, ubuntu",2026-07-31 12:15:02,2026-07-31 12:15:20
+198.51.100.201,4,Low,0,0.03,"2 hour(s), 10 minute(s), 8 second(s)",No,No,oracle,2026-07-31 13:02:07,2026-07-31 15:12:15
+203.0.113.99,2,Low,0,4.29,28 second(s),No,No,www-data,2026-07-31 15:48:11,2026-07-31 15:48:39
+185.220.101.5,17,High,4,12.91,"1 minute(s), 19 second(s)",Yes,No,root,2026-07-31 16:00:11,2026-07-31 16:01:30
+203.0.113.150,1,Low,0,1.0,0 second(s),No,No,backup,2026-07-31 17:25:12,2026-07-31 17:25:12
+45.155.205.17,10,High,4,6.06,"1 minute(s), 39 second(s)",Yes,No,admin,2026-07-31 17:40:08,2026-07-31 17:41:47
